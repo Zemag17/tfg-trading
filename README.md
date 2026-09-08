@@ -1,165 +1,461 @@
-# TFG Trading — Sistema de Backtesting para Estrategias de Trading con ML y RL
+# TFG Trading — Comparación de Aprendizaje Supervisado y DQN para Generación de Señales de Trading
 
-Sistema integral de backtesting que compara modelos de aprendizaje supervisado (Regresión Logística, Random Forest, MLP) con un agente DQN (Deep Q-Network) para trading automático de múltiples activos.
+Proyecto desarrollado como Trabajo de Fin de Grado en Ingeniería de Software en la Universidad de Málaga.
 
-## 📋 Requisitos Previos
+El objetivo del proyecto es comparar dos enfoques de Aprendizaje Automático para la generación de señales de trading sobre series financieras diarias:
+
+- modelos de Aprendizaje Automático supervisado orientados a predecir el signo del retorno de la siguiente sesión;
+- un agente de Aprendizaje por Refuerzo basado en Deep Q-Network (DQN), que aprende directamente una política de posicionamiento a partir de una recompensa económica.
+
+La comparación se realiza mediante un procedimiento común de preparación de datos y backtesting sobre seis activos financieros, incorporando costes de transacción y utilizando una división cronológica fija de entrenamiento, validación y prueba.
+
+---
+
+## Objetivo del estudio
+
+La rama supervisada formula el problema como una clasificación binaria:
+
+- `1`: el retorno de la siguiente sesión es positivo;
+- `0`: el retorno de la siguiente sesión es nulo o negativo.
+
+Se estudian cuatro modelos:
+
+- Regresión Logística;
+- Random Forest;
+- Máquinas de Vectores de Soporte (SVM);
+- Perceptrón Multicapa (MLP).
+
+El agente DQN aborda el problema desde una perspectiva secuencial. En cada instante puede:
+
+- permanecer fuera del mercado (`0`);
+- mantener una posición larga (`1`).
+
+El objetivo del trabajo no es demostrar que un paradigma sea universalmente superior al otro, sino estudiar si optimizar una tarea de clasificación y optimizar una recompensa económica conducen a comportamientos financieros diferentes.
+
+---
+
+## Activos utilizados
+
+El estudio se realiza de forma independiente sobre seis activos:
+
+| Ticker | Activo | Tipo |
+|---|---|---|
+| `BTC-USD` | Bitcoin | Criptoactivo |
+| `META` | Meta Platforms | Renta variable tecnológica |
+| `SPY` | SPDR S&P 500 ETF Trust | Renta variable estadounidense |
+| `PEP` | PepsiCo | Renta variable defensiva |
+| `TLT` | iShares 20+ Year Treasury Bond ETF | Renta fija de larga duración |
+| `GLD` | SPDR Gold Shares | Oro |
+
+Los datos diarios se descargan mediante `yfinance` desde el 1 de enero de 2015.
+
+---
+
+## Variables utilizadas
+
+Ambas ramas utilizan las mismas doce características financieras construidas a partir de datos OHLCV:
+
+1. retorno logarítmico de una sesión;
+2. retorno acumulado de 5 sesiones;
+3. retorno acumulado de 10 sesiones;
+4. retorno normalizado por volatilidad;
+5. volatilidad histórica de 20 sesiones;
+6. cambio relativo de la volatilidad;
+7. distancia respecto a la SMA de 20 sesiones;
+8. distancia respecto a la SMA de 50 sesiones;
+9. cruce relativo entre SMA20 y SMA50;
+10. RSI de 14 sesiones;
+11. rango intradía relativo;
+12. volumen relativo respecto a su media móvil.
+
+El DQN incorpora además la posición actual del agente, por lo que su estado tiene 13 componentes.
+
+Los niveles absolutos de precio no se utilizan directamente como variables de entrada.
+
+---
+
+## División temporal de los datos
+
+Los datos se dividen cronológicamente en:
+
+- 70 % entrenamiento;
+- 15 % validación;
+- 15 % prueba.
+
+No se utiliza división aleatoria ni validación `walk-forward`.
+
+El ajuste del `StandardScaler` se realiza únicamente sobre la partición de entrenamiento para evitar fuga de información. Las variables estandarizadas se limitan posteriormente al intervalo `[-5, 5]`.
+
+---
+
+## Costes de transacción
+
+La evaluación financiera utiliza un coste nominal de:
+
+```text
+0.0005 = 5 puntos básicos
+```
+
+por cada cambio completo de posición.
+
+El coste se aplica proporcionalmente a:
+
+```text
+|posición_actual - posición_anterior|
+```
+
+Por tanto:
+
+- mantener una posición no genera un nuevo coste;
+- entrar al mercado genera un coste;
+- salir del mercado genera un coste.
+
+La estrategia de comprar y mantener también incorpora el coste correspondiente a la entrada inicial.
+
+### Penalización adicional durante el entrenamiento del DQN
+
+Durante el entrenamiento del agente DQN se utiliza una penalización amplificada por rotación:
+
+```text
+lambda = 15
+```
+
+La recompensa utilizada por el entorno es:
+
+```text
+recompensa =
+    posicion_nueva * retorno
+    - rotacion * coste_operacion * lambda
+```
+
+Por tanto, un cambio de posición recibe internamente durante el entrenamiento una penalización equivalente a:
+
+```text
+15 × 0.0005 = 0.0075
+```
+
+es decir, 75 puntos básicos.
+
+Este valor **no representa un coste real de transacción**. Se utiliza únicamente como mecanismo de *reward shaping* para desincentivar una operativa excesivamente frecuente.
+
+La evaluación final de todas las estrategias continúa utilizando el coste nominal común de 5 puntos básicos.
+
+---
+
+## Requisitos
 
 ### Python
-- **Python 3.9+** (recomendado 3.10 o superior)
-- **pip** (gestor de paquetes de Python)
 
-### Dependencias del Proyecto
+Se recomienda utilizar Python 3.10 o superior.
 
-Instala todas las dependencias ejecutando:
+Instala las dependencias con:
 
-    pip install -r requirements.txt
+```bash
+pip install -r requirements.txt
+```
 
-**Paquetes principales:**
-- `numpy>=1.24.0` — Operaciones numéricas
-- `pandas>=1.5.0` — Manipulación de datos
-- `scikit-learn>=1.2.0` — Modelos supervisados (LR, RF, MLP)
-- `stable-baselines3>=1.7.0` — Agente DQN
-- `gymnasium>=0.27.0` — Entorno de RL
-- `matplotlib>=3.6.0` — Visualización
-- `seaborn>=0.12.0` — Estilos de gráficos
-- `yfinance>=0.2.0` — Descarga de datos financieros (opcional, si usas descarga automática)
+Entre las principales librerías utilizadas se encuentran:
 
-## 🚀 Cómo Ejecutar el Proyecto
+- NumPy;
+- pandas;
+- scikit-learn;
+- Stable-Baselines3;
+- Gymnasium;
+- PyTorch;
+- matplotlib;
+- yfinance.
 
-### 1. Preparar los Datos
+---
 
-Los datos deben estar en formato CSV en la carpeta `datos/`. Alternativamente, puedes descargarlos automáticamente desde Yahoo Finance:
+## Ejecución del proyecto
 
-    python descargar_datos.py
+El proyecto está organizado como un pipeline secuencial.
 
-Esto generará archivos CSV en `datos/` para los activos configurados.
+### 1. Descarga de datos
 
-### 2. Procesar y Alinear Datos
-
-Prepara los datos para los modelos (estandarización, construcción de features):
-
-    python procesar_datos.py
-    python alinear_datos.py
+```bash
+python descargar_datos.py
+```
 
 Genera:
-- `features/` — Matrices de features estandarizadas
-- Particiones cronológicas de entrenamiento, validación y prueba
 
-### 3. Entrenar Modelos Supervisados
+```text
+datos_mercado/<TICKER>.csv
+```
 
-Entrena Regresión Logística, Random Forest, SVM y MLP:
+### 2. Procesamiento de datos
 
-    python modelos_supervisados.py
+```bash
+python procesar_datos.py
+```
 
-Salida:
-- `datos_features/<ACTIVO>_features.csv` — Matriz de variables estacionarias por activo
-- `resultados/metricas_supervisado.csv` — Métricas de clasificación (exactitud, precisión, recall, F1)
-- `resultados/senales_supervisado.csv` — Señales generadas (entrada para backtesting)
+Genera:
 
-### 4. Evaluar Modelos Supervisados (Backtesting)
+```text
+datos_procesados/<ACTIVO>_procesado.csv
+```
 
-Ejecuta el backtesting descontando costes de transacción (5 puntos básicos):
+### 3. Alineamiento temporal
 
-    python backtest_supervisado.py
+```bash
+python alinear_datos.py
+```
 
-Salida:
-- `resultados/backtest_supervisado.csv` — Métricas financieras por activo y modelo (Sharpe, retorno total, caída máxima, etc.)
-- `resultados/curvas_capital_supervisado.csv` — Evolución diaria del capital en el tramo de prueba
+Alinea todos los activos sobre un calendario temporal común.
 
-### 5. Entrenar Agente DQN y Evaluar
+### 4. Entrenamiento de modelos supervisados
 
-Entrena un agente Deep Q-Learning con 3 semillas independientes y genera sus métricas de backtest:
+```bash
+python modelos_supervisados.py
+```
 
-    python agente_dqn.py
+Entrena:
 
-Opciones:
-- `--activos SPY BTC_USD` — Procesar solo ciertos activos
-- `--semillas 0 1 2` — Semillas de entrenamiento (defecto: 0, 1, 2)
-- `--pasos 30000` — Pasos máximos de entrenamiento por semilla
+- Regresión Logística;
+- Random Forest;
+- SVM;
+- MLP.
 
-Salida:
-- `resultados/metricas_dqn.csv` — Métricas por semilla (una fila por activo, semilla y partición)
-- `resultados/backtest_dqn.csv` — Media y desviación típica entre semillas
-- `resultados/senales_dqn.csv` — Señales del agente (validación y prueba)
-- `resultados/curvas_capital_dqn.csv` — Curvas de capital por semilla
-- `resultados/modelos_dqn/<ACTIVO>_semilla<N>/best_model.zip` — Pesos entrenados
+Genera:
 
-### 6. Generar Gráficos Comparativos
+```text
+datos_features/<ACTIVO>_features.csv
+resultados/metricas_supervisado.csv
+resultados/senales_supervisado.csv
+```
 
-Visualiza los resultados en gráficos vectoriales SVG y PDF:
+### 5. Backtesting de los modelos supervisados
 
-    python visualizador.py
+```bash
+python backtest_supervisado.py
+```
 
-Genera en `resultados/`:
-- `grafico_supervisado.svg/pdf` — Evolución de capital por activo (modelos supervisados)
-- `grafico_dqn.svg/pdf` — Evolución de capital por activo (agentes DQN)
-- `grafico_comparativo.svg/pdf` — Ranking global de Ratio Sharpe por modelo
+Genera:
 
-## 📁 Estructura del Proyecto
+```text
+resultados/backtest_supervisado.csv
+resultados/curvas_capital_supervisado.csv
+```
 
-    tfg_trading/
-    ├── datos/                          # Datos CSV descargados o ingresados
-    ├── features/                       # Features procesadas y estandarizadas
-    ├── resultados/                     # Resultados de backtests y gráficos
-    │   ├── backtest_supervisado.csv
-    │   ├── backtest_dqn.csv
-    │   ├── curvas_capital_supervisado.csv
-    │   ├── curvas_capital_dqn.csv
-    │   └── (gráficos SVG/PDF)
-    ├── descargar_datos.py              # Descarga datos de Yahoo Finance
-    ├── procesar_datos.py               # Limpieza, normalización, features
-    ├── alinear_datos.py                # Alineación temporal de datos
-    ├── modelos_supervisados.py         # Entrenamiento LR, RF, SVM, MLP
-    ├── agente_dqn.py                   # Entrenamiento y evaluación del DQN
-    ├── visualizador.py                 # Generación de gráficos
-    ├── requirements.txt                # Dependencias del proyecto
-    └── README.md                       # Este archivo
+### 6. Entrenamiento y evaluación del agente DQN
 
-## ⚙️ Configuración
+```bash
+python agente_dqn.py
+```
 
-Todos los parámetros configurables están centralizados:
-- **Activos a analizar:** Modifica `ACTIVOS` en los scripts principales.
-- **Fechas de datos:** Cambia los rangos temporales en los módulos de carga.
-- **Parámetros de RL:** En `agente_dqn.py` se ajustan tasas de aprendizaje, gamma y epsilon.
-- **Fricción de mercado:** El coste por operación está fijado por defecto en `COSTE_OPERACION = 0.0005` (5 puntos básicos).
+La arquitectura contiene dos capas ocultas:
 
-## 📊 Interpretación de Resultados
+```text
+64 -> 32
+```
 
-### Métricas de Rendimiento
-- **Ratio Sharpe:** Rentabilidad ajustada por riesgo total (mayor es mejor).
-- **Ratio Sortino:** Rentabilidad ajustada exclusivamente por riesgo de bajada.
-- **Máximo Drawdown:** Caída máxima relativa desde un pico anterior.
-- **Exposición:** Porcentaje de tiempo que el modelo permanece invertido frente a liquidez.
+Parámetros principales:
 
-## 🐛 Troubleshooting
+```text
+learning_rate = 5e-4
+buffer_size = 50000
+learning_starts = 1000
+batch_size = 64
+gamma = 0.99
+train_freq = 4
+target_update_interval = 1000
+exploration_fraction = 0.30
+exploration_final_eps = 0.05
+max_grad_norm = 10
+```
 
-**Error: ModuleNotFoundError**
-- Verifica que has activado tu entorno virtual y ejecutado `pip install -r requirements.txt`.
+Se utilizan tres semillas:
 
-**Gráficos no se generan en visualizador.py**
-- Comprueba que los archivos CSV en la carpeta `resultados/` existen y han sido generados previamente ejecutando los scripts de backtest.
+```text
+0, 1, 2
+```
 
-**Agente DQN sobreopera (pérdidas por comisiones)**
-- El entorno incorpora un multiplicador de castigo en la función de recompensa para mitigar este comportamiento en las versiones base del TFG.
+y un máximo de:
 
-## 📈 Ejemplo de Ejecución Completa
+```text
+30000 pasos
+```
 
-    python descargar_datos.py
-    python procesar_datos.py
-    python alinear_datos.py
-    python modelos_supervisados.py
-    python backtest_supervisado.py
-    python agente_dqn.py --activos SPY BTC_USD META PEP TLT GLD --semillas 0 1 2 --pasos 30000
-    python visualizador.py
+por activo y semilla.
 
-Tras completar estos pasos, abre `resultados/grafico_comparativo.svg` para ver el ranking global de rendimiento.
+La selección del modelo se realiza sobre validación. Se conserva el modelo con mejor recompensa media de evaluación y se aplica parada anticipada con:
 
-## 📚 Referencias y Fuentes
+```text
+min_evals = 8
+max_no_improvement_evals = 6
+```
 
-- **Stable-Baselines3:** https://stable-baselines3.readthedocs.io/
-- **Gymnasium:** https://gymnasium.farama.org/
-- **Scikit-Learn:** https://scikit-learn.org/
+La partición de prueba no participa en el entrenamiento ni en la selección del modelo.
 
-## 📝 Autor
+Ejemplo de ejecución:
 
-Trabajo Fin de Grado (TFG) desarrollado por **Pablo Gámez Guerrero**.
+```bash
+python agente_dqn.py \
+    --activos SPY BTC_USD META PEP TLT GLD \
+    --semillas 0 1 2 \
+    --pasos 30000
+```
+
+Genera:
+
+```text
+resultados/metricas_dqn.csv
+resultados/backtest_dqn.csv
+resultados/senales_dqn.csv
+resultados/curvas_capital_dqn.csv
+resultados/modelos_dqn/
+```
+
+### 7. Generación de gráficos
+
+```bash
+python visualizador.py
+```
+
+Genera:
+
+```text
+resultados/grafico_supervisado.svg
+resultados/grafico_supervisado.pdf
+resultados/grafico_dqn.svg
+resultados/grafico_dqn.pdf
+resultados/grafico_comparativo.svg
+resultados/grafico_comparativo.pdf
+```
+
+---
+
+## Estructura del proyecto
+
+```text
+tfg-trading/
+│
+├── datos_mercado/
+├── datos_procesados/
+├── datos_features/
+├── resultados/
+│   ├── backtest_supervisado.csv
+│   ├── backtest_dqn.csv
+│   ├── metricas_supervisado.csv
+│   ├── metricas_dqn.csv
+│   ├── senales_supervisado.csv
+│   ├── senales_dqn.csv
+│   ├── curvas_capital_supervisado.csv
+│   ├── curvas_capital_dqn.csv
+│   ├── modelos_dqn/
+│   └── gráficos SVG/PDF
+│
+├── descargar_datos.py
+├── procesar_datos.py
+├── alinear_datos.py
+├── modelos_supervisados.py
+├── backtest_supervisado.py
+├── entorno_trading.py
+├── agente_dqn.py
+├── metricas_financieras.py
+├── visualizador.py
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Métricas de evaluación
+
+Las estrategias se comparan mediante:
+
+- retorno total;
+- CAGR;
+- volatilidad anualizada;
+- ratio de Sharpe;
+- ratio de Sortino;
+- máxima caída (*Maximum Drawdown*);
+- ratio de Calmar;
+- exposición al mercado;
+- número de operaciones;
+- proporción de sesiones ganadoras mientras existe exposición.
+
+Para los clasificadores supervisados también se analiza la capacidad predictiva mediante métricas de clasificación.
+
+---
+
+## Estrategia de referencia
+
+Se utiliza una estrategia de `Buy & Hold` como referencia financiera.
+
+Esta estrategia permanece invertida durante la partición evaluada y se somete al mismo modelo nominal de costes de transacción.
+
+---
+
+## Ejecución completa
+
+```bash
+python descargar_datos.py
+python procesar_datos.py
+python alinear_datos.py
+python modelos_supervisados.py
+python backtest_supervisado.py
+python agente_dqn.py --activos SPY BTC_USD META PEP TLT GLD --semillas 0 1 2 --pasos 30000
+python visualizador.py
+```
+
+Los resultados se almacenan en:
+
+```text
+resultados/
+```
+
+---
+
+## Consideraciones metodológicas
+
+Este repositorio corresponde a un estudio experimental retrospectivo.
+
+Los resultados deben interpretarse dentro de las condiciones concretas del experimento:
+
+- seis activos;
+- frecuencia diaria;
+- una única división cronológica 70/15/15;
+- ausencia de posiciones cortas;
+- posición binaria: fuera del mercado o posición larga;
+- coste nominal fijo de 5 puntos básicos;
+- ausencia de dividendos;
+- ausencia de impacto de mercado;
+- ausencia de spread variable;
+- ausencia de validación `walk-forward`;
+- tres semillas para el agente DQN.
+
+Los resultados no deben interpretarse como evidencia de superioridad general de una técnica ni como una recomendación de inversión.
+
+---
+
+## Reproducibilidad
+
+Para reproducir el experimento se recomienda:
+
+1. crear un entorno virtual de Python;
+2. instalar `requirements.txt`;
+3. ejecutar los scripts en el orden indicado;
+4. mantener las semillas especificadas;
+5. utilizar los mismos datos y parámetros experimentales.
+
+---
+
+## Referencias técnicas
+
+- [Stable-Baselines3](https://stable-baselines3.readthedocs.io/)
+- [Gymnasium](https://gymnasium.farama.org/)
+- [Scikit-learn](https://scikit-learn.org/)
+- [yfinance](https://github.com/ranaroussi/yfinance)
+
+---
+
+## Autor
+
+**Pablo Gámez Guerrero**
+
+Trabajo de Fin de Grado — Grado en Ingeniería de Software  
+Escuela Técnica Superior de Ingeniería Informática  
+Universidad de Málaga
+
+**Tutor:** Francisco de Asís Fernández Navarro
