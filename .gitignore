@@ -1,0 +1,6 @@
+entorno_tfg/
+defensa/
+__pycache__/
+*.py[cod]
+.DS_Store
+estado_proyecto.md

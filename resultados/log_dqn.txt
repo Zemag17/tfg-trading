@@ -1,0 +1,59 @@
+Entrenamiento del agente DQN
+Coste de transaccion: 5.0 puntos basicos por unidad de rotacion
+Semillas: [0, 1, 2] | pasos maximos por semilla: 30000
+
+Activo BTC_USD: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +1.0246 | prueba retorno -0.3788 Sharpe -0.592 caida -0.4939 exposicion 0.813 operaciones 77
+  semilla 1: recompensa validacion +1.0220 | prueba retorno -0.1787 Sharpe -0.151 caida -0.4298 exposicion 0.876 operaciones 73
+  semilla 2: recompensa validacion +1.0044 | prueba retorno -0.2303 Sharpe -0.351 caida -0.4000 exposicion 0.653 operaciones 137
+
+Activo META: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +1.1771 | prueba retorno +0.0087 Sharpe +0.179 caida -0.2702 exposicion 0.726 operaciones 139
+  semilla 1: recompensa validacion +1.0993 | prueba retorno +0.1223 Sharpe +0.370 caida -0.2618 exposicion 0.644 operaciones 143
+  semilla 2: recompensa validacion +1.0988 | prueba retorno -0.1904 Sharpe -0.251 caida -0.4895 exposicion 0.698 operaciones 137
+
+Activo SPY: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +0.3398 | prueba retorno +0.3200 Sharpe +1.224 caida -0.1332 exposicion 0.686 operaciones 139
+  semilla 1: recompensa validacion +0.4021 | prueba retorno +0.2550 Sharpe +1.126 caida -0.0981 exposicion 0.822 operaciones 73
+  semilla 2: recompensa validacion +0.3885 | prueba retorno +0.0294 Sharpe +0.190 caida -0.1494 exposicion 0.672 operaciones 147
+
+Activo PEP: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +0.1369 | prueba retorno -0.2225 Sharpe -0.849 caida -0.2795 exposicion 0.548 operaciones 179
+  semilla 1: recompensa validacion -0.0191 | prueba retorno -0.0138 Sharpe +0.038 caida -0.1691 exposicion 0.553 operaciones 195
+  semilla 2: recompensa validacion +0.0774 | prueba retorno -0.2187 Sharpe -0.795 caida -0.2526 exposicion 0.604 operaciones 163
+
+Activo TLT: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +0.1561 | prueba retorno -0.0397 Sharpe -0.266 caida -0.1020 exposicion 0.433 operaciones 178
+  semilla 1: recompensa validacion +0.0826 | prueba retorno -0.0939 Sharpe -0.583 caida -0.1289 exposicion 0.677 operaciones 110
+  semilla 2: recompensa validacion +0.0516 | prueba retorno +0.0051 Sharpe +0.084 caida -0.0676 exposicion 0.131 operaciones 66
+
+Activo GLD: entrenamiento 1991 | validacion 427 | prueba 427
+  semilla 0: recompensa validacion +0.1500 | prueba retorno +0.2498 Sharpe +0.743 caida -0.2420 exposicion 0.653 operaciones 135
+  semilla 1: recompensa validacion +0.2803 | prueba retorno +0.4646 Sharpe +1.141 caida -0.2897 exposicion 0.735 operaciones 121
+  semilla 2: recompensa validacion +0.1900 | prueba retorno +0.2380 Sharpe +0.790 caida -0.2098 exposicion 0.607 operaciones 155
+
+Particion de prueba, media entre semillas
+ activo             modelo  retorno_total_media  ratio_sharpe_media  ratio_sortino_media  caida_maxima_media  exposicion_media  n_operaciones_media
+BTC_USD Comprar y mantener              -0.2726             -0.2647              -0.2657             -0.5351            1.0000               1.0000
+BTC_USD                DQN              -0.2626             -0.3648              -0.3721             -0.4412            0.7806              95.6667
+    GLD Comprar y mantener               0.6156              1.2661               1.1425             -0.2640            1.0000               1.0000
+    GLD                DQN               0.3175              0.8913               0.8283             -0.2472            0.6651             137.0000
+   META Comprar y mantener               0.0690              0.2953               0.3097             -0.3415            1.0000               1.0000
+   META                DQN              -0.0198              0.0994               0.1194             -0.3405            0.6893             139.6667
+    PEP Comprar y mantener              -0.0612             -0.0559              -0.0589             -0.2004            1.0000               1.0000
+    PEP                DQN              -0.1517             -0.5352              -0.5205             -0.2337            0.5683             179.0000
+    SPY Comprar y mantener               0.3378              1.0769               1.0634             -0.1876            1.0000               1.0000
+    SPY                DQN               0.2014              0.8467               0.9353             -0.1269            0.7268             119.6667
+    TLT Comprar y mantener              -0.0074              0.0177               0.0174             -0.0944            1.0000               1.0000
+    TLT                DQN              -0.0428             -0.2550              -0.2532             -0.0995            0.4137             118.0000
+
+Media sobre los activos procesados (particion de prueba)
+                    retorno_total_media  ratio_sharpe_media  ratio_sortino_media  caida_maxima_media
+modelo                                                                                              
+Comprar y mantener               0.1136              0.3893               0.3681             -0.2705
+DQN                              0.0070              0.1137               0.1229             -0.2482
+
+Metricas por semilla guardadas en resultados/metricas_dqn.csv
+Agregado por semillas guardado en resultados/backtest_dqn.csv
+Senales guardadas en resultados/senales_dqn.csv
+Curvas de capital guardadas en resultados/curvas_capital_dqn.csv
